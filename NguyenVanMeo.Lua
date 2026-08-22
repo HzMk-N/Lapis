@@ -14,20 +14,26 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1", Duration = 5 })
+WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1 + Aimbot", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
+local CombatTab = Window:Tab({ Title = "Combat", Icon = "crosshair" })
 local UtilityTab = Window:Tab({ Title = "Utility", Icon = "settings" })
 
 local noclipEnabled = false
-local infJumpEnabled = false
 local espEnabled = false
 local itemEspEnabled = false
 local brightEnabled = false
 local speedEnabled = false
 local currentSpeed = 16
 local defaultSpeed = 16
+
+local aimEnabled = false
+local showFov = true
+local fovSize = 120
+local smoothness = 0.18
+local maxAimDistance = 180
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -39,6 +45,15 @@ local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local espObjects = {}
 local itemEspObjects = {}
+
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 1.8
+fovCircle.NumSides = 64
+fovCircle.Radius = fovSize
+fovCircle.Filled = false
+fovCircle.Visible = false
+fovCircle.Color = Color3.fromRGB(0, 255, 180)
+fovCircle.Transparency = 0.25
 
 local dangerousNames = {
     "Tall", "Charge", "Drawer", "Dragger", "Demon Eye", "DemonEye",
@@ -313,6 +328,56 @@ local function setWalkSpeed(speed)
     end
 end
 
+local function getClosestMonsterInFOV()
+    local closest = nil
+    local shortest = math.huge
+    local cam = workspace.CurrentCamera
+    local viewportSize = cam.ViewportSize
+    local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+
+    for target, data in pairs(espObjects) do
+        if target and target.Parent and data.Root and data.Root.Parent then
+            local monsterType = getMonsterType(target.Name)
+            if monsterType == "Safe" then continue end
+
+            local pos, onScreen = cam:WorldToViewportPoint(data.Root.Position)
+            if onScreen then
+                local distToCenter = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                local worldDist = (cam.CFrame.Position - data.Root.Position).Magnitude
+
+                if distToCenter <= fovSize and worldDist <= maxAimDistance then
+                    local priority = 3
+                    if monsterType == "Dangerous" then 
+                        priority = 1
+                    elseif monsterType == "Special" then 
+                        priority = 2 
+                    end
+
+                    local score = distToCenter + (priority * 25)
+                    if score < shortest then
+                        shortest = score
+                        closest = data.Root
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function doAimbot()
+    if not aimEnabled then return end
+
+    local targetPart = getClosestMonsterInFOV()
+    if targetPart then
+        local cam = workspace.CurrentCamera
+        local targetPos = targetPart.Position + Vector3.new(0, 1.4, 0)
+        local current = cam.CFrame
+        local goal = CFrame.new(current.Position, targetPos)
+        cam.CFrame = current:Lerp(goal, smoothness)
+    end
+end
+
 MovementTab:Toggle({
     Title = "Speed",
     Callback = function(v)
@@ -366,6 +431,45 @@ VisualsTab:Toggle({
                 removeItemESP(target)
             end
         end
+    end
+})
+
+CombatTab:Toggle({
+    Title = "Aimbot Quái",
+    Callback = function(v)
+        aimEnabled = v
+    end
+})
+
+CombatTab:Toggle({
+    Title = "Hiện vòng FOV",
+    Default = true,
+    Callback = function(v)
+        showFov = v
+    end
+})
+
+CombatTab:Slider({
+    Title = "FOV Size",
+    Value = { Min = 40, Max = 400, Default = 120 },
+    Callback = function(v)
+        fovSize = v
+    end
+})
+
+CombatTab:Slider({
+    Title = "Smoothness (thấp = mượt hơn)",
+    Value = { Min = 0.05, Max = 0.8, Default = 0.18 },
+    Callback = function(v)
+        smoothness = v
+    end
+})
+
+CombatTab:Slider({
+    Title = "Max Distance",
+    Value = { Min = 50, Max = 400, Default = 180 },
+    Callback = function(v)
+        maxAimDistance = v
     end
 })
 
@@ -427,6 +531,15 @@ RunService.RenderStepped:Connect(function()
 
     if itemEspEnabled then
         updateItemESP()
+    end
+
+    local viewportSize = camera.ViewportSize
+    fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+    fovCircle.Radius = fovSize
+    fovCircle.Visible = showFov and aimEnabled
+
+    if aimEnabled then
+        doAimbot()
     end
 end)
 
