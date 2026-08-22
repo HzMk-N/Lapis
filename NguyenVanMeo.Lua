@@ -14,7 +14,7 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1 (+ Unlock Camera)", Duration = 5 })
+WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
@@ -26,14 +26,8 @@ local espEnabled = false
 local itemEspEnabled = false
 local brightEnabled = false
 local speedEnabled = false
-local unlockCamEnabled = false
 local currentSpeed = 16
 local defaultSpeed = 16
-
--- Lưu giá trị gốc của camera
-local originalMaxZoom = 128
-local originalMinZoom = 0.5
-local originalCameraMode = Enum.CameraMode.Classic
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -297,23 +291,6 @@ local function toggleBright(state)
     end
 end
 
-local function toggleUnlockCamera(state)
-    unlockCamEnabled = state
-    if state then
-        -- Mở khóa hoàn toàn
-        player.CameraMaxZoomDistance = 9999
-        player.CameraMinZoomDistance = 0.5
-        player.CameraMode = Enum.CameraMode.Classic
-        camera.CameraType = Enum.CameraType.Custom
-    else
-        -- Trả về mặc định
-        player.CameraMaxZoomDistance = originalMaxZoom
-        player.CameraMinZoomDistance = originalMinZoom
-        player.CameraMode = originalCameraMode
-        camera.CameraType = Enum.CameraType.Custom
-    end
-end
-
 local function giveTPTool()
     local tool = Instance.new("Tool")
     tool.Name = "Teleport Tool"
@@ -392,24 +369,36 @@ VisualsTab:Toggle({
     end
 })
 
-VisualsTab:Button({
-    Title = "Unlock Camera",
-    Callback = function()
-        toggleUnlockCamera(true)
-        WindUI:Notify({
-            Title = "ARZ",
-            Content = "Camera Unlock",
-            Duration = 3
-        })
-    end
-})
-
 UtilityTab:Button({
     Title = "Reset Character",
     Callback = function()
         if player.Character then
             player.Character:BreakJoints()
         end
+    end
+})
+
+UtilityTab:Button({
+    Title = "Unlock Camera",
+    Callback = function()
+        local cam = workspace.CurrentCamera
+        local char = player.Character
+
+        cam.CameraType = Enum.CameraType.Custom
+        player.CameraMode = Enum.CameraMode.Classic
+
+        if char and char:FindFirstChild("Humanoid") then
+            cam.CameraSubject = char.Humanoid
+        end
+
+        player.CameraMinZoomDistance = 0.5
+        player.CameraMaxZoomDistance = 400
+
+        WindUI:Notify({
+            Title = "Camera",
+            Content = "Camera đã được unlock!",
+            Duration = 3
+        })
     end
 })
 
@@ -438,11 +427,6 @@ RunService.RenderStepped:Connect(function()
 
     if itemEspEnabled then
         updateItemESP()
-    end
-
-    if unlockCamEnabled then
-        player.CameraMaxZoomDistance = 9999
-        player.CameraMinZoomDistance = 0.5
     end
 end)
 
@@ -479,8 +463,5 @@ player.CharacterAdded:Connect(function(char)
     task.wait(0.5)
     if speedEnabled then
         setWalkSpeed(currentSpeed)
-    end
-    if unlockCamEnabled then
-        toggleUnlockCamera(true)
     end
 end)
