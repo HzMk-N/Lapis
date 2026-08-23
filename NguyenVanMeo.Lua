@@ -3,7 +3,7 @@ local WindUI = loadstring(game:HttpGet('https://raw.githubusercontent.com/Footag
 local Window = WindUI:CreateWindow({
     Title = "ARZ || NguyenVanMeo",
     Icon = "sword",
-    Author = "V1.2 | Demonic Week",
+    Author = "V1.3 | Demonic Week + Auto Dodge",
     Folder = "ARZ",
     Theme = "Dark",
     Transparent = true,
@@ -14,7 +14,7 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1 + Aimbot + Anti Noise + Auto Dodge", Duration = 5 })
+WindUI:Notify({ Title = "ARZ", Content = "Script V1.3 | Aimbot + Anti Noise + Auto Dodge Fixed", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
@@ -38,10 +38,11 @@ local maxAimDistance = 180
 local antiNoiseEnabled = false
 local savedEffects = {}
 
+-- Auto Dodge
 local autoDodgeEnabled = false
-local dodgeDistance = 7
+local dodgeDistance = 10
 local dodgeForce = 65
-local dodgeCooldown = 0.35
+local dodgeCooldown = 0.18
 local lastDodgeTime = 0
 
 local Players = game:GetService("Players")
@@ -414,7 +415,7 @@ local function doAutoDodge()
     for target, data in pairs(espObjects) do
         if target and target.Parent and data.Root and data.Root.Parent then
             local mType = getMonsterType(target.Name)
-            if mType == "Dangerous" or mType == "Special" then
+            if mType \~= "Safe" then
                 local dist = (hrp.Position - data.Root.Position).Magnitude
                 if dist < closestDist and dist <= dodgeDistance then
                     closestDist = dist
@@ -425,14 +426,16 @@ local function doAutoDodge()
     end
 
     if closestRoot then
-        local direction = (hrp.Position - closestRoot.Position).Unit
-        direction = Vector3.new(direction.X, 0, direction.Z).Unit
+        local directions = {
+            hrp.CFrame.RightVector,
+            -hrp.CFrame.RightVector,
+            hrp.CFrame.LookVector,
+            -hrp.CFrame.LookVector
+        }
+        local dir = directions[math.random(1, 4)]
+        dir = Vector3.new(dir.X, 0, dir.Z).Unit
 
-        hrp.AssemblyLinearVelocity = Vector3.new(
-            direction.X * dodgeForce,
-            hrp.AssemblyLinearVelocity.Y,
-            direction.Z * dodgeForce
-        )
+        hrp.CFrame = hrp.CFrame + (dir * 9)
 
         lastDodgeTime = tick()
     end
@@ -486,8 +489,7 @@ local function doAimbot()
         local goal = CFrame.new(current.Position, targetPos)
         cam.CFrame = current:Lerp(goal, smoothness)
     end
-end-- UI
-MovementTab:Toggle({
+endMovementTab:Toggle({
     Title = "Speed",
     Callback = function(v)
         speedEnabled = v
@@ -528,7 +530,7 @@ MovementTab:Toggle({
 
 MovementTab:Slider({
     Title = "Dodge Distance (studs)",
-    Value = { Min = 5, Max = 12, Default = 7 },
+    Value = { Min = 5, Max = 25, Default = 10 },
     Callback = function(v)
         dodgeDistance = v
     end
