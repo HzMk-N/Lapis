@@ -14,7 +14,7 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1 + Aimbot + Anti Noise", Duration = 5 })
+WindUI:Notify({ Title = "ARZ", Content = "Script không làm chống steal || chỉ cho người quen sài", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
