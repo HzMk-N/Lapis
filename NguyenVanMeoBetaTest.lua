@@ -3,7 +3,7 @@ local WindUI = loadstring(game:HttpGet('https://raw.githubusercontent.com/Footag
 local Window = WindUI:CreateWindow({
     Title = "ARZ || NguyenVanMeo",
     Icon = "sword",
-    Author = "V1.3 | Demonic Week + Auto Dodge",
+    Author = "V1.4 | Auto Dodge Fixed",
     Folder = "ARZ",
     Theme = "Dark",
     Transparent = true,
@@ -14,7 +14,7 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({ Title = "ARZ", Content = "Script + Aimbot + Anti Noise + Auto Dodge (All Monster)", Duration = 5 })
+WindUI:Notify({ Title = "ARZ", Content = "V1.4 - Auto Dodge Fixed + Slider Stud", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
@@ -42,10 +42,10 @@ local savedEffects = {}
 local autoDodgeEnabled = false
 local isDodging = false
 local lastDodgeTime = 0
-local DODGE_COOLDOWN = 0.22
+local DODGE_COOLDOWN = 0.25
 local DODGE_MIN = 1
 local DODGE_MAX = 25
-local DETECT_RANGE = 18
+local DETECT_RANGE = 14          -- chỉ né khi quái ≤ 14 stud
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -241,12 +241,12 @@ end
 
 local function updateESP()
     for target, data in pairs(espObjects) do
-        if target and target.Parent and data.Text and data.Root then
+        if target and target.Parent and data.Text and data.Root and data.Root.Parent then
             local dist = (camera.CFrame.Position - data.Root.Position).Magnitude
             data.Text.Text = string.format("%s\n%.0f m", target.Name, dist)
         else
-            if data.Highlight then data.Highlight:Destroy() end
-            if data.Billboard then data.Billboard:Destroy() end
+            if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
+            if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
             espObjects[target] = nil
         end
     end
@@ -453,7 +453,7 @@ local function doAimbot()
     end
 end
 
--- Auto Dodge functions
+-- Auto Dodge
 local envParams = RaycastParams.new()
 envParams.FilterType = Enum.RaycastFilterType.Exclude
 
@@ -522,6 +522,7 @@ local function doAutoDodge()
     local now = tick()
     if now - lastDodgeTime < DODGE_COOLDOWN then return end
 
+    -- Chỉ lấy quái còn sống & trong tầm DETECT_RANGE
     local closestRoot = nil
     local closestDist = DETECT_RANGE
 
@@ -535,6 +536,7 @@ local function doAutoDodge()
         end
     end
 
+    -- Không có quái gần → không né
     if not closestRoot then return end
 
     isDodging = true
@@ -552,17 +554,18 @@ local function doAutoDodge()
     local distance = math.random(DODGE_MIN, DODGE_MAX)
     local finalPos = getSafePos(root.Position, dir, distance)
 
-    if (finalPos - root.Position).Magnitude > 1.5 then
+    if (finalPos - root.Position).Magnitude > 1.2 then
         root.AssemblyLinearVelocity = Vector3.zero
         root.AssemblyAngularVelocity = Vector3.zero
         root.CFrame = CFrame.new(finalPos, finalPos + root.CFrame.LookVector)
         playDodgeFX()
     end
 
-    task.delay(0.06, function()
+    task.delay(0.07, function()
         isDodging = false
     end)
 end
+
 MovementTab:Toggle({
     Title = "Speed",
     Callback = function(v)
@@ -640,7 +643,7 @@ CombatTab:Slider({
 })
 
 CombatTab:Slider({
-    Title = "Smoothness (kéo lên 1, kéo xuống 0 khỏi aim)",
+    Title = "Smoothness",
     Value = { Min = 0.05, Max = 0.8, Default = 0.18 },
     Callback = function(v)
         smoothness = v
@@ -655,6 +658,7 @@ CombatTab:Slider({
     end
 })
 
+-- Auto Dodge + Slider Stud
 CombatTab:Toggle({
     Title = "Auto Dodge (All Monster)",
     Callback = function(v)
@@ -662,9 +666,25 @@ CombatTab:Toggle({
         updateDodgeFilters()
         WindUI:Notify({
             Title = "Auto Dodge",
-            Content = v and "Đã bật - Né tất cả quái (1-25 stud)" or "Đã tắt Auto Dodge",
+            Content = v and "Đã bật - Chỉ né khi có quái gần" or "Đã tắt Auto Dodge",
             Duration = 3
         })
+    end
+})
+
+CombatTab:Slider({
+    Title = "Dodge Min Stud",
+    Value = { Min = 1, Max = 15, Default = 1 },
+    Callback = function(v)
+        DODGE_MIN = v
+    end
+})
+
+CombatTab:Slider({
+    Title = "Dodge Max Stud",
+    Value = { Min = 5, Max = 30, Default = 25 },
+    Callback = function(v)
+        DODGE_MAX = v
     end
 })
 
@@ -794,4 +814,4 @@ player.CharacterAdded:Connect(function()
 end)
 
 updateDodgeFilters()
-print("[ARZ] Loaded - Auto Dodge All Monster (1-25 stud)")
+print("[ARZ] V1.4 Loaded - Auto Dodge Fixed")
