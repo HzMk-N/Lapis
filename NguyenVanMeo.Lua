@@ -3,7 +3,7 @@ local WindUI = loadstring(game:HttpGet('https://raw.githubusercontent.com/Footag
 local Window = WindUI:CreateWindow({
     Title = "ARZ || NguyenVanMeo",
     Icon = "sword",
-    Author = "V1.3 | Demonic Week + Auto Dodge",
+    Author = "V1.2 | Demonic Week",
     Folder = "ARZ",
     Theme = "Dark",
     Transparent = true,
@@ -14,7 +14,7 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({ Title = "ARZ", Content = "Script V1.3 | Aimbot + Anti Noise + Auto Dodge Fixed", Duration = 5 })
+WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1 + Aimbot + Anti Noise", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
@@ -37,12 +37,6 @@ local maxAimDistance = 180
 
 local antiNoiseEnabled = false
 local savedEffects = {}
-
-local autoDodgeEnabled = false
-local dodgeDistance = 10
-local dodgeForce = 65
-local dodgeCooldown = 0.18
-local lastDodgeTime = 0
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -331,6 +325,7 @@ local function toggleAntiNoise(state)
             end
         end
         
+        -- Tắt effect trên Camera
         local cam = workspace.CurrentCamera
         if cam then
             for _, effect in pairs(cam:GetChildren()) do
@@ -347,6 +342,7 @@ local function toggleAntiNoise(state)
         Lighting.FogStart = 0
         Lighting.FogColor = Color3.fromRGB(192, 192, 192)
         
+        -- Reset Atmosphere
         local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
         if atmosphere then
             atmosphere.Density = 0
@@ -361,6 +357,7 @@ local function toggleAntiNoise(state)
             Duration = 3
         })
     else
+        -- Bật lại các effect đã tắt
         for effect, wasEnabled in pairs(savedEffects) do
             if effect and effect.Parent then
                 effect.Enabled = wasEnabled
@@ -395,48 +392,6 @@ local function setWalkSpeed(speed)
     local char = player.Character
     if char and char:FindFirstChild("Humanoid") then
         char.Humanoid.WalkSpeed = speed
-    end
-end
-
-local function doAutoDodge()
-    if not autoDodgeEnabled then return end
-    if tick() - lastDodgeTime < dodgeCooldown then return end
-
-    local char = player.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hrp or not hum or hum.Health <= 0 then return end
-
-    local closestDist = math.huge
-    local closestRoot = nil
-
-    for target, data in pairs(espObjects) do
-        if target and target.Parent and data.Root and data.Root.Parent then
-            local mType = getMonsterType(target.Name)
-            if mType \~= "Safe" then
-                local dist = (hrp.Position - data.Root.Position).Magnitude
-                if dist < closestDist and dist <= dodgeDistance then
-                    closestDist = dist
-                    closestRoot = data.Root
-                end
-            end
-        end
-    end
-
-    if closestRoot then
-        local directions = {
-            hrp.CFrame.RightVector,
-            -hrp.CFrame.RightVector,
-            hrp.CFrame.LookVector,
-            -hrp.CFrame.LookVector
-        }
-        local dir = directions[math.random(1, 4)]
-        dir = Vector3.new(dir.X, 0, dir.Z).Unit
-
-        hrp.CFrame = hrp.CFrame + (dir * 9)
-
-        lastDodgeTime = tick()
     end
 end
 
@@ -489,6 +444,7 @@ local function doAimbot()
         cam.CFrame = current:Lerp(goal, smoothness)
     end
 end
+
 MovementTab:Toggle({
     Title = "Speed",
     Callback = function(v)
@@ -513,29 +469,6 @@ MovementTab:Slider({
 })
 
 MovementTab:Toggle({ Title = "NoClip", Callback = function(v) noclipEnabled = v end })
-
-MovementTab:Toggle({
-    Title = "Auto Dodge (Né quái gần)",
-    Callback = function(v)
-        autoDodgeEnabled = v
-        if v then
-            WindUI:Notify({
-                Title = "Auto Dodge",
-                Content = "Đã bật! Né khi quái ≤ " .. dodgeDistance .. " studs",
-                Duration = 3
-            })
-        end
-    end
-})
-
-MovementTab:Slider({
-    Title = "Dodge Distance (studs)",
-    Value = { Min = 5, Max = 25, Default = 10 },
-    Callback = function(v)
-        dodgeDistance = v
-    end
-})
-
 MovementTab:Button({ Title = "Tool Teleport", Callback = giveTPTool })
 
 VisualsTab:Toggle({ Title = "Bright / Fullbright", Callback = toggleBright })
@@ -686,8 +619,6 @@ RunService.RenderStepped:Connect(function()
             atmosphere.Haze = 0
         end
     end
-
-    doAutoDodge()
 
     local viewportSize = camera.ViewportSize
     fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
