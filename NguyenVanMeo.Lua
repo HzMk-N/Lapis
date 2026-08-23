@@ -3,20 +3,18 @@ local WindUI = loadstring(game:HttpGet('https://raw.githubusercontent.com/Footag
 local Window = WindUI:CreateWindow({
     Title = "ARZ || NguyenVanMeo",
     Icon = "sword",
-    Author = "V1.3 | Demonic Week",
+    Author = "V1.3 | Demonic Week + Auto Dodge",
     Folder = "ARZ",
     Theme = "Dark",
     Transparent = true,
     Acrylic = false,
     Size = UDim2.fromOffset(620, 480),
     Resizable = true,
+    Background = "https://cdn2.tuoitre.vn/zoom/1200_1200/471584752817336320/2026/8/20/fbdfbfdbfd-17871990884091573492102-186-393-487-969-crop-178719939727143468149.jpg",
+    BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({
-    Title = "ARZ",
-    Content = "Script V1.3 | Auto Dodge Fixed",
-    Duration = 5
-})
+WindUI:Notify({ Title = "ARZ", Content = "Script V1.3 | Aimbot + Anti Noise + Auto Dodge Fixed", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
@@ -43,11 +41,13 @@ local savedEffects = {}
 -- Auto Dodge
 local autoDodgeEnabled = false
 local dodgeDistance = 10
+local dodgeForce = 65
 local dodgeCooldown = 0.18
 local lastDodgeTime = 0
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 
@@ -56,18 +56,14 @@ local camera = Workspace.CurrentCamera
 local espObjects = {}
 local itemEspObjects = {}
 
--- FOV Circle an toàn (không crash nếu executor không hỗ trợ Drawing)
-local fovCircle = nil
-pcall(function()
-    fovCircle = Drawing.new("Circle")
-    fovCircle.Thickness = 1.8
-    fovCircle.NumSides = 64
-    fovCircle.Radius = fovSize
-    fovCircle.Filled = false
-    fovCircle.Visible = false
-    fovCircle.Color = Color3.fromRGB(0, 255, 180)
-    fovCircle.Transparency = 0.25
-end)
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 1.8
+fovCircle.NumSides = 64
+fovCircle.Radius = fovSize
+fovCircle.Filled = false
+fovCircle.Visible = false
+fovCircle.Color = Color3.fromRGB(0, 255, 180)
+fovCircle.Transparency = 0.25
 
 local dangerousNames = {
     "Tall", "Charge", "Drawer", "Dragger", "Demon Eye", "DemonEye",
@@ -94,7 +90,7 @@ local function isPlayerCharacter(model)
 end
 
 local function getMonsterType(name)
-    name = string.lower(name or "")
+    name = string.lower(name)
     for _, n in ipairs(dangerousNames) do
         if string.find(name, string.lower(n)) then
             return "Dangerous"
@@ -118,7 +114,10 @@ local function isItem(obj)
             return true
         end
     end
-    return obj:IsA("Tool")
+    if obj:IsA("Tool") then
+        return true
+    end
+    return false
 end
 
 local function createESP(target)
@@ -187,9 +186,10 @@ local function createESP(target)
 end
 
 local function createItemESP(target)
-    if not target or itemEspObjects[target] then return end
+    if not target then return end
+    if itemEspObjects[target] then return end
 
-    local part
+    local part = nil
     if target:IsA("BasePart") then
         part = target
     elseif target:IsA("Model") then
@@ -197,6 +197,7 @@ local function createItemESP(target)
     elseif target:IsA("Tool") then
         part = target:FindFirstChild("Handle") or target:FindFirstChildWhichIsA("BasePart")
     end
+
     if not part then return end
 
     local highlight = Instance.new("Highlight")
@@ -240,8 +241,8 @@ local function updateESP()
             local dist = (camera.CFrame.Position - data.Root.Position).Magnitude
             data.Text.Text = string.format("%s\n%.0f m", target.Name, dist)
         else
-            pcall(function() if data.Highlight then data.Highlight:Destroy() end end)
-            pcall(function() if data.Billboard then data.Billboard:Destroy() end end)
+            if data.Highlight then data.Highlight:Destroy() end
+            if data.Billboard then data.Billboard:Destroy() end
             espObjects[target] = nil
         end
     end
@@ -253,8 +254,8 @@ local function updateItemESP()
             local dist = (camera.CFrame.Position - data.Root.Position).Magnitude
             data.Text.Text = string.format("[ITEM] %s\n%.0f m", target.Name, dist)
         else
-            pcall(function() if data.Highlight then data.Highlight:Destroy() end end)
-            pcall(function() if data.Billboard then data.Billboard:Destroy() end end)
+            if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
+            if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
             itemEspObjects[target] = nil
         end
     end
@@ -262,16 +263,16 @@ end
 
 local function removeESP(target)
     if espObjects[target] then
-        pcall(function() if espObjects[target].Highlight then espObjects[target].Highlight:Destroy() end end)
-        pcall(function() if espObjects[target].Billboard then espObjects[target].Billboard:Destroy() end end)
+        if espObjects[target].Highlight then pcall(function() espObjects[target].Highlight:Destroy() end) end
+        if espObjects[target].Billboard then pcall(function() espObjects[target].Billboard:Destroy() end) end
         espObjects[target] = nil
     end
 end
 
 local function removeItemESP(target)
     if itemEspObjects[target] then
-        pcall(function() if itemEspObjects[target].Highlight then itemEspObjects[target].Highlight:Destroy() end end)
-        pcall(function() if itemEspObjects[target].Billboard then itemEspObjects[target].Billboard:Destroy() end end)
+        if itemEspObjects[target].Highlight then pcall(function() itemEspObjects[target].Highlight:Destroy() end) end
+        if itemEspObjects[target].Billboard then pcall(function() itemEspObjects[target].Billboard:Destroy() end) end
         itemEspObjects[target] = nil
     end
 end
@@ -288,7 +289,10 @@ end
 
 local function scanItems()
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        if isItem(obj) and not obj:IsDescendantOf(player.Character) and not obj:IsDescendantOf(player.Backpack) then
+        if isItem(obj) then
+            if obj:IsDescendantOf(player.Character) or obj:IsDescendantOf(player.Backpack) then
+                continue
+            end
             createItemESP(obj)
         end
     end
@@ -305,6 +309,7 @@ local function toggleBright(state)
         Lighting.Ambient = Color3.fromRGB(255, 255, 255)
     else
         Lighting.Brightness = 1
+        Lighting.ClockTime = 14
         Lighting.GlobalShadows = true
         Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
         Lighting.Ambient = Color3.fromRGB(70, 70, 70)
@@ -313,23 +318,49 @@ end
 
 local function toggleAntiNoise(state)
     antiNoiseEnabled = state
+    
     if state then
         for _, effect in pairs(Lighting:GetChildren()) do
-            if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect")
-            or effect:IsA("DepthOfFieldEffect") or effect:IsA("SunRaysEffect") or effect:IsA("ColorGradingEffect") then
+            if effect:IsA("BlurEffect") 
+            or effect:IsA("ColorCorrectionEffect") 
+            or effect:IsA("BloomEffect") 
+            or effect:IsA("DepthOfFieldEffect") 
+            or effect:IsA("SunRaysEffect") 
+            or effect:IsA("ColorGradingEffect") then
                 savedEffects[effect] = effect.Enabled
                 effect.Enabled = false
             end
         end
+        
+        local cam = workspace.CurrentCamera
+        if cam then
+            for _, effect in pairs(cam:GetChildren()) do
+                if effect:IsA("BlurEffect") 
+                or effect:IsA("ColorCorrectionEffect") 
+                or effect:IsA("BloomEffect") 
+                or effect:IsA("DepthOfFieldEffect") then
+                    effect.Enabled = false
+                end
+            end
+        end
+        
         Lighting.FogEnd = 1000000
         Lighting.FogStart = 0
+        Lighting.FogColor = Color3.fromRGB(192, 192, 192)
+        
         local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
         if atmosphere then
             atmosphere.Density = 0
+            atmosphere.Offset = 0
             atmosphere.Glare = 0
             atmosphere.Haze = 0
         end
-        WindUI:Notify({ Title = "Anti Noise", Content = "Đã tắt hiệu ứng!", Duration = 3 })
+        
+        WindUI:Notify({
+            Title = "Anti Noise",
+            Content = "Đã tắt làm nhiễu / visual effects!",
+            Duration = 3
+        })
     else
         for effect, wasEnabled in pairs(savedEffects) do
             if effect and effect.Parent then
@@ -337,7 +368,12 @@ local function toggleAntiNoise(state)
             end
         end
         table.clear(savedEffects)
-        WindUI:Notify({ Title = "Anti Noise", Content = "Đã bật lại hiệu ứng", Duration = 3 })
+        
+        WindUI:Notify({
+            Title = "Anti Noise",
+            Content = "Đã bật lại visual effects",
+            Duration = 3
+        })
     end
 end
 
@@ -378,7 +414,8 @@ local function doAutoDodge()
 
     for target, data in pairs(espObjects) do
         if target and target.Parent and data.Root and data.Root.Parent then
-            if getMonsterType(target.Name) \~= "Safe" then
+            local mType = getMonsterType(target.Name)
+            if mType \~= "Safe" then
                 local dist = (hrp.Position - data.Root.Position).Magnitude
                 if dist < closestDist and dist <= dodgeDistance then
                     closestDist = dist
@@ -397,7 +434,9 @@ local function doAutoDodge()
         }
         local dir = directions[math.random(1, 4)]
         dir = Vector3.new(dir.X, 0, dir.Z).Unit
+
         hrp.CFrame = hrp.CFrame + (dir * 9)
+
         lastDodgeTime = tick()
     end
 end
@@ -406,22 +445,31 @@ local function getClosestMonsterInFOV()
     local closest = nil
     local shortest = math.huge
     local cam = workspace.CurrentCamera
-    local center = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
+    local viewportSize = cam.ViewportSize
+    local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
 
     for target, data in pairs(espObjects) do
         if target and target.Parent and data.Root and data.Root.Parent then
-            if getMonsterType(target.Name) \~= "Safe" then
-                local pos, onScreen = cam:WorldToViewportPoint(data.Root.Position)
-                if onScreen then
-                    local distToCenter = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    local worldDist = (cam.CFrame.Position - data.Root.Position).Magnitude
-                    if distToCenter <= fovSize and worldDist <= maxAimDistance then
-                        local priority = (getMonsterType(target.Name) == "Dangerous" and 1) or (getMonsterType(target.Name) == "Special" and 2) or 3
-                        local score = distToCenter + (priority * 25)
-                        if score < shortest then
-                            shortest = score
-                            closest = data.Root
-                        end
+            local monsterType = getMonsterType(target.Name)
+            if monsterType == "Safe" then continue end
+
+            local pos, onScreen = cam:WorldToViewportPoint(data.Root.Position)
+            if onScreen then
+                local distToCenter = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                local worldDist = (cam.CFrame.Position - data.Root.Position).Magnitude
+
+                if distToCenter <= fovSize and worldDist <= maxAimDistance then
+                    local priority = 3
+                    if monsterType == "Dangerous" then 
+                        priority = 1
+                    elseif monsterType == "Special" then 
+                        priority = 2 
+                    end
+
+                    local score = distToCenter + (priority * 25)
+                    if score < shortest then
+                        shortest = score
+                        closest = data.Root
                     end
                 end
             end
@@ -432,18 +480,26 @@ end
 
 local function doAimbot()
     if not aimEnabled then return end
+
     local targetPart = getClosestMonsterInFOV()
     if targetPart then
         local cam = workspace.CurrentCamera
-        local goal = CFrame.new(cam.CFrame.Position, targetPart.Position + Vector3.new(0, 1.4, 0))
-        cam.CFrame = cam.CFrame:Lerp(goal, smoothness)
+        local targetPos = targetPart.Position + Vector3.new(0, 1.4, 0)
+        local current = cam.CFrame
+        local goal = CFrame.new(current.Position, targetPos)
+        cam.CFrame = current:Lerp(goal, smoothness)
     end
 end
+
 MovementTab:Toggle({
     Title = "Speed",
     Callback = function(v)
         speedEnabled = v
-        setWalkSpeed(v and currentSpeed or defaultSpeed)
+        if v then
+            setWalkSpeed(currentSpeed)
+        else
+            setWalkSpeed(defaultSpeed)
+        end
     end
 })
 
@@ -452,45 +508,55 @@ MovementTab:Slider({
     Value = { Min = 16, Max = 200, Default = 16 },
     Callback = function(v)
         currentSpeed = v
-        if speedEnabled then setWalkSpeed(v) end
+        if speedEnabled then
+            setWalkSpeed(v)
+        end
     end
 })
 
 MovementTab:Toggle({ Title = "NoClip", Callback = function(v) noclipEnabled = v end })
 
 MovementTab:Toggle({
-    Title = "Auto Dodge",
+    Title = "Auto Dodge (Né quái gần)",
     Callback = function(v)
         autoDodgeEnabled = v
         if v then
-            WindUI:Notify({ Title = "Auto Dodge", Content = "Đã bật!", Duration = 3 })
+            WindUI:Notify({
+                Title = "Auto Dodge",
+                Content = "Đã bật! Né khi quái ≤ " .. dodgeDistance .. " studs",
+                Duration = 3
+            })
         end
     end
 })
 
 MovementTab:Slider({
-    Title = "Dodge Distance",
+    Title = "Dodge Distance (studs)",
     Value = { Min = 5, Max = 25, Default = 10 },
-    Callback = function(v) dodgeDistance = v end
+    Callback = function(v)
+        dodgeDistance = v
+    end
 })
 
 MovementTab:Button({ Title = "Tool Teleport", Callback = giveTPTool })
 
-VisualsTab:Toggle({ Title = "Fullbright", Callback = toggleBright })
+VisualsTab:Toggle({ Title = "Bright / Fullbright", Callback = toggleBright })
 
 VisualsTab:Toggle({
-    Title = "Anti Noise (tắt hiệu ứng tối)",
+    Title = "Làm mờ hiệu ứng tối của game",
     Callback = toggleAntiNoise
 })
 
 VisualsTab:Toggle({
-    Title = "ESP Monster",
+    Title = "ESP Entity, monster",
     Callback = function(v)
         espEnabled = v
         if v then
             scanMonsters()
         else
-            for t, _ in pairs(espObjects) do removeESP(t) end
+            for target, _ in pairs(espObjects) do
+                removeESP(target)
+            end
         end
     end
 })
@@ -502,38 +568,50 @@ VisualsTab:Toggle({
         if v then
             scanItems()
         else
-            for t, _ in pairs(itemEspObjects) do removeItemESP(t) end
+            for target, _ in pairs(itemEspObjects) do
+                removeItemESP(target)
+            end
         end
     end
 })
 
 CombatTab:Toggle({
-    Title = "Aimbot",
-    Callback = function(v) aimEnabled = v end
+    Title = "Aimbot Quái",
+    Callback = function(v)
+        aimEnabled = v
+    end
 })
 
 CombatTab:Slider({
     Title = "FOV Size",
     Value = { Min = 40, Max = 400, Default = 120 },
-    Callback = function(v) fovSize = v end
+    Callback = function(v)
+        fovSize = v
+    end
 })
 
 CombatTab:Slider({
-    Title = "Smoothness",
+    Title = "Smoothness (kéo lên 1, kéo xuống 0 khỏi aim)",
     Value = { Min = 0.05, Max = 0.8, Default = 0.18 },
-    Callback = function(v) smoothness = v end
+    Callback = function(v)
+        smoothness = v
+    end
 })
 
 CombatTab:Slider({
     Title = "Max Distance",
     Value = { Min = 50, Max = 400, Default = 180 },
-    Callback = function(v) maxAimDistance = v end
+    Callback = function(v)
+        maxAimDistance = v
+    end
 })
 
 UtilityTab:Button({
     Title = "Reset Character",
     Callback = function()
-        if player.Character then player.Character:BreakJoints() end
+        if player.Character then
+            player.Character:BreakJoints()
+        end
     end
 })
 
@@ -541,14 +619,23 @@ UtilityTab:Button({
     Title = "Unlock Camera",
     Callback = function()
         local cam = workspace.CurrentCamera
+        local char = player.Character
+
         cam.CameraType = Enum.CameraType.Custom
         player.CameraMode = Enum.CameraMode.Classic
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            cam.CameraSubject = player.Character.Humanoid
+
+        if char and char:FindFirstChild("Humanoid") then
+            cam.CameraSubject = char.Humanoid
         end
+
         player.CameraMinZoomDistance = 0.5
         player.CameraMaxZoomDistance = 400
-        WindUI:Notify({ Title = "Camera", Content = "Unlocked!", Duration = 3 })
+
+        WindUI:Notify({
+            Title = "Camera",
+            Content = "Camera unlock!",
+            Duration = 3
+        })
     end
 })
 
@@ -558,7 +645,9 @@ RunService.RenderStepped:Connect(function()
 
     if speedEnabled then
         local hum = char:FindFirstChild("Humanoid")
-        if hum then hum.WalkSpeed = currentSpeed end
+        if hum then
+            hum.WalkSpeed = currentSpeed
+        end
     end
 
     if noclipEnabled then
@@ -569,17 +658,29 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    if espEnabled then updateESP() end
-    if itemEspEnabled then updateItemESP() end
+    if espEnabled then
+        updateESP()
+    end
+
+    if itemEspEnabled then
+        updateItemESP()
+    end
 
     if antiNoiseEnabled then
         for _, effect in pairs(Lighting:GetChildren()) do
-            if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect")
-            or effect:IsA("DepthOfFieldEffect") or effect:IsA("SunRaysEffect") or effect:IsA("ColorGradingEffect") then
+            if effect:IsA("BlurEffect") 
+            or effect:IsA("ColorCorrectionEffect") 
+            or effect:IsA("BloomEffect") 
+            or effect:IsA("DepthOfFieldEffect") 
+            or effect:IsA("SunRaysEffect") 
+            or effect:IsA("ColorGradingEffect") then
                 effect.Enabled = false
             end
         end
+        
         Lighting.FogEnd = 1000000
+        Lighting.FogStart = 0
+        
         local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
         if atmosphere then
             atmosphere.Density = 0
@@ -590,12 +691,10 @@ RunService.RenderStepped:Connect(function()
 
     doAutoDodge()
 
-    if fovCircle then
-        local vs = camera.ViewportSize
-        fovCircle.Position = Vector2.new(vs.X / 2, vs.Y / 2)
-        fovCircle.Radius = fovSize
-        fovCircle.Visible = showFov and aimEnabled
-    end
+    local viewportSize = camera.ViewportSize
+    fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+    fovCircle.Radius = fovSize
+    fovCircle.Visible = showFov and aimEnabled
 
     if aimEnabled then
         doAimbot()
@@ -603,15 +702,21 @@ RunService.RenderStepped:Connect(function()
 end)
 
 Workspace.DescendantAdded:Connect(function(desc)
-    task.wait(0.35)
-    if espEnabled and desc:IsA("Model") and (desc:FindFirstChildOfClass("Humanoid") or desc:FindFirstChild("HumanoidRootPart")) then
-        if not isPlayerCharacter(desc) then
-            createESP(desc)
+    task.wait(0.4)
+    
+    if espEnabled then
+        if desc:IsA("Model") and (desc:FindFirstChildOfClass("Humanoid") or desc:FindFirstChild("HumanoidRootPart")) then
+            if not isPlayerCharacter(desc) then
+                createESP(desc)
+            end
         end
     end
-    if itemEspEnabled and isItem(desc) then
-        if not desc:IsDescendantOf(player.Character) and not desc:IsDescendantOf(player.Backpack) then
-            createItemESP(desc)
+
+    if itemEspEnabled then
+        if isItem(desc) then
+            if not desc:IsDescendantOf(player.Character) and not desc:IsDescendantOf(player.Backpack) then
+                createItemESP(desc)
+            end
         end
     end
 end)
