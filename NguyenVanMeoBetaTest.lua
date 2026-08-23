@@ -38,14 +38,13 @@ local maxAimDistance = 180
 local antiNoiseEnabled = false
 local savedEffects = {}
 
--- Auto Dodge
 local autoDodgeEnabled = false
 local isDodging = false
 local lastDodgeTime = 0
 local DODGE_COOLDOWN = 0.25
 local DODGE_MIN = 1
 local DODGE_MAX = 25
-local DETECT_RANGE = 14          -- chỉ né khi quái ≤ 14 stud
+local DETECT_RANGE = 14
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -453,7 +452,6 @@ local function doAimbot()
     end
 end
 
--- Auto Dodge
 local envParams = RaycastParams.new()
 envParams.FilterType = Enum.RaycastFilterType.Exclude
 
@@ -521,8 +519,7 @@ local function doAutoDodge()
 
     local now = tick()
     if now - lastDodgeTime < DODGE_COOLDOWN then return end
-
-    -- Chỉ lấy quái còn sống & trong tầm DETECT_RANGE
+    
     local closestRoot = nil
     local closestDist = DETECT_RANGE
 
@@ -536,7 +533,6 @@ local function doAutoDodge()
         end
     end
 
-    -- Không có quái gần → không né
     if not closestRoot then return end
 
     isDodging = true
@@ -658,9 +654,8 @@ CombatTab:Slider({
     end
 })
 
--- Auto Dodge + Slider Stud
 CombatTab:Toggle({
-    Title = "Auto Dodge (All Monster)",
+    Title = "Auto Dodge (đang test)",
     Callback = function(v)
         autoDodgeEnabled = v
         updateDodgeFilters()
