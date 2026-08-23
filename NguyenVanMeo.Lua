@@ -38,16 +38,13 @@ local maxAimDistance = 180
 local antiNoiseEnabled = false
 local savedEffects = {}
 
--- Auto Dodge
 local autoDodgeEnabled = false
 local dodgeDistance = 10
-local dodgeForce = 65
 local dodgeCooldown = 0.18
 local lastDodgeTime = 0
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 
@@ -90,7 +87,7 @@ local function isPlayerCharacter(model)
 end
 
 local function getMonsterType(name)
-    name = string.lower(name)
+    name = string.lower(name or "")
     for _, n in ipairs(dangerousNames) do
         if string.find(name, string.lower(n)) then
             return "Dangerous"
@@ -241,8 +238,8 @@ local function updateESP()
             local dist = (camera.CFrame.Position - data.Root.Position).Magnitude
             data.Text.Text = string.format("%s\n%.0f m", target.Name, dist)
         else
-            if data.Highlight then data.Highlight:Destroy() end
-            if data.Billboard then data.Billboard:Destroy() end
+            if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
+            if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
             espObjects[target] = nil
         end
     end
@@ -290,10 +287,9 @@ end
 local function scanItems()
     for _, obj in ipairs(Workspace:GetDescendants()) do
         if isItem(obj) then
-            if obj:IsDescendantOf(player.Character) or obj:IsDescendantOf(player.Backpack) then
-                continue
+            if not obj:IsDescendantOf(player.Character) and not obj:IsDescendantOf(player.Backpack) then
+                createItemESP(obj)
             end
-            createItemESP(obj)
         end
     end
 end
@@ -318,36 +314,25 @@ end
 
 local function toggleAntiNoise(state)
     antiNoiseEnabled = state
-    
     if state then
         for _, effect in pairs(Lighting:GetChildren()) do
-            if effect:IsA("BlurEffect") 
-            or effect:IsA("ColorCorrectionEffect") 
-            or effect:IsA("BloomEffect") 
-            or effect:IsA("DepthOfFieldEffect") 
-            or effect:IsA("SunRaysEffect") 
-            or effect:IsA("ColorGradingEffect") then
+            if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect")
+            or effect:IsA("DepthOfFieldEffect") or effect:IsA("SunRaysEffect") or effect:IsA("ColorGradingEffect") then
                 savedEffects[effect] = effect.Enabled
                 effect.Enabled = false
             end
         end
-        
         local cam = workspace.CurrentCamera
         if cam then
             for _, effect in pairs(cam:GetChildren()) do
-                if effect:IsA("BlurEffect") 
-                or effect:IsA("ColorCorrectionEffect") 
-                or effect:IsA("BloomEffect") 
-                or effect:IsA("DepthOfFieldEffect") then
+                if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect") or effect:IsA("DepthOfFieldEffect") then
                     effect.Enabled = false
                 end
             end
         end
-        
         Lighting.FogEnd = 1000000
         Lighting.FogStart = 0
         Lighting.FogColor = Color3.fromRGB(192, 192, 192)
-        
         local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
         if atmosphere then
             atmosphere.Density = 0
@@ -355,12 +340,7 @@ local function toggleAntiNoise(state)
             atmosphere.Glare = 0
             atmosphere.Haze = 0
         end
-        
-        WindUI:Notify({
-            Title = "Anti Noise",
-            Content = "Đã tắt làm nhiễu / visual effects!",
-            Duration = 3
-        })
+        WindUI:Notify({ Title = "Anti Noise", Content = "Đã tắt làm nhiễu / visual effects!", Duration = 3 })
     else
         for effect, wasEnabled in pairs(savedEffects) do
             if effect and effect.Parent then
@@ -368,12 +348,7 @@ local function toggleAntiNoise(state)
             end
         end
         table.clear(savedEffects)
-        
-        WindUI:Notify({
-            Title = "Anti Noise",
-            Content = "Đã bật lại visual effects",
-            Duration = 3
-        })
+        WindUI:Notify({ Title = "Anti Noise", Content = "Đã bật lại visual effects", Duration = 3 })
     end
 end
 
@@ -434,9 +409,7 @@ local function doAutoDodge()
         }
         local dir = directions[math.random(1, 4)]
         dir = Vector3.new(dir.X, 0, dir.Z).Unit
-
         hrp.CFrame = hrp.CFrame + (dir * 9)
-
         lastDodgeTime = tick()
     end
 end
@@ -451,25 +424,20 @@ local function getClosestMonsterInFOV()
     for target, data in pairs(espObjects) do
         if target and target.Parent and data.Root and data.Root.Parent then
             local monsterType = getMonsterType(target.Name)
-            if monsterType == "Safe" then continue end
-
-            local pos, onScreen = cam:WorldToViewportPoint(data.Root.Position)
-            if onScreen then
-                local distToCenter = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                local worldDist = (cam.CFrame.Position - data.Root.Position).Magnitude
-
-                if distToCenter <= fovSize and worldDist <= maxAimDistance then
-                    local priority = 3
-                    if monsterType == "Dangerous" then 
-                        priority = 1
-                    elseif monsterType == "Special" then 
-                        priority = 2 
-                    end
-
-                    local score = distToCenter + (priority * 25)
-                    if score < shortest then
-                        shortest = score
-                        closest = data.Root
+            if monsterType \~= "Safe" then
+                local pos, onScreen = cam:WorldToViewportPoint(data.Root.Position)
+                if onScreen then
+                    local distToCenter = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    local worldDist = (cam.CFrame.Position - data.Root.Position).Magnitude
+                    if distToCenter <= fovSize and worldDist <= maxAimDistance then
+                        local priority = 3
+                        if monsterType == "Dangerous" then priority = 1
+                        elseif monsterType == "Special" then priority = 2 end
+                        local score = distToCenter + (priority * 25)
+                        if score < shortest then
+                            shortest = score
+                            closest = data.Root
+                        end
                     end
                 end
             end
@@ -480,7 +448,6 @@ end
 
 local function doAimbot()
     if not aimEnabled then return end
-
     local targetPart = getClosestMonsterInFOV()
     if targetPart then
         local cam = workspace.CurrentCamera
@@ -591,7 +558,7 @@ CombatTab:Slider({
 })
 
 CombatTab:Slider({
-    Title = "Smoothness (kéo lên 1, kéo xuống 0 khỏi aim)",
+    Title = "Smoothness",
     Value = { Min = 0.05, Max = 0.8, Default = 0.18 },
     Callback = function(v)
         smoothness = v
@@ -620,22 +587,14 @@ UtilityTab:Button({
     Callback = function()
         local cam = workspace.CurrentCamera
         local char = player.Character
-
         cam.CameraType = Enum.CameraType.Custom
         player.CameraMode = Enum.CameraMode.Classic
-
         if char and char:FindFirstChild("Humanoid") then
             cam.CameraSubject = char.Humanoid
         end
-
         player.CameraMinZoomDistance = 0.5
         player.CameraMaxZoomDistance = 400
-
-        WindUI:Notify({
-            Title = "Camera",
-            Content = "Camera unlock!",
-            Duration = 3
-        })
+        WindUI:Notify({ Title = "Camera", Content = "Camera unlock!", Duration = 3 })
     end
 })
 
@@ -668,19 +627,13 @@ RunService.RenderStepped:Connect(function()
 
     if antiNoiseEnabled then
         for _, effect in pairs(Lighting:GetChildren()) do
-            if effect:IsA("BlurEffect") 
-            or effect:IsA("ColorCorrectionEffect") 
-            or effect:IsA("BloomEffect") 
-            or effect:IsA("DepthOfFieldEffect") 
-            or effect:IsA("SunRaysEffect") 
-            or effect:IsA("ColorGradingEffect") then
+            if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect")
+            or effect:IsA("DepthOfFieldEffect") or effect:IsA("SunRaysEffect") or effect:IsA("ColorGradingEffect") then
                 effect.Enabled = false
             end
         end
-        
         Lighting.FogEnd = 1000000
         Lighting.FogStart = 0
-        
         local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
         if atmosphere then
             atmosphere.Density = 0
@@ -703,7 +656,6 @@ end)
 
 Workspace.DescendantAdded:Connect(function(desc)
     task.wait(0.4)
-    
     if espEnabled then
         if desc:IsA("Model") and (desc:FindFirstChildOfClass("Humanoid") or desc:FindFirstChild("HumanoidRootPart")) then
             if not isPlayerCharacter(desc) then
@@ -711,7 +663,6 @@ Workspace.DescendantAdded:Connect(function(desc)
             end
         end
     end
-
     if itemEspEnabled then
         if isItem(desc) then
             if not desc:IsDescendantOf(player.Character) and not desc:IsDescendantOf(player.Backpack) then
