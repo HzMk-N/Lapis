@@ -14,7 +14,7 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1 + Aimbot", Duration = 5 })
+WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1 + Aimbot + Anti Noise", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
@@ -34,6 +34,9 @@ local showFov = true
 local fovSize = 120
 local smoothness = 0.18
 local maxAimDistance = 180
+
+local antiNoiseEnabled = false
+local savedEffects = {}
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -306,6 +309,70 @@ local function toggleBright(state)
     end
 end
 
+local function toggleAntiNoise(state)
+    antiNoiseEnabled = state
+    
+    if state then
+        for _, effect in pairs(Lighting:GetChildren()) do
+            if effect:IsA("BlurEffect") 
+            or effect:IsA("ColorCorrectionEffect") 
+            or effect:IsA("BloomEffect") 
+            or effect:IsA("DepthOfFieldEffect") 
+            or effect:IsA("SunRaysEffect") 
+            or effect:IsA("ColorGradingEffect") then
+                savedEffects[effect] = effect.Enabled
+                effect.Enabled = false
+            end
+        end
+        
+        -- Tắt effect trên Camera
+        local cam = workspace.CurrentCamera
+        if cam then
+            for _, effect in pairs(cam:GetChildren()) do
+                if effect:IsA("BlurEffect") 
+                or effect:IsA("ColorCorrectionEffect") 
+                or effect:IsA("BloomEffect") 
+                or effect:IsA("DepthOfFieldEffect") then
+                    effect.Enabled = false
+                end
+            end
+        end
+        
+        Lighting.FogEnd = 1000000
+        Lighting.FogStart = 0
+        Lighting.FogColor = Color3.fromRGB(192, 192, 192)
+        
+        -- Reset Atmosphere
+        local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+        if atmosphere then
+            atmosphere.Density = 0
+            atmosphere.Offset = 0
+            atmosphere.Glare = 0
+            atmosphere.Haze = 0
+        end
+        
+        WindUI:Notify({
+            Title = "Anti Noise",
+            Content = "Đã tắt làm nhiễu / visual effects!",
+            Duration = 3
+        })
+    else
+        -- Bật lại các effect đã tắt
+        for effect, wasEnabled in pairs(savedEffects) do
+            if effect and effect.Parent then
+                effect.Enabled = wasEnabled
+            end
+        end
+        table.clear(savedEffects)
+        
+        WindUI:Notify({
+            Title = "Anti Noise",
+            Content = "Đã bật lại visual effects",
+            Duration = 3
+        })
+    end
+end
+
 local function giveTPTool()
     local tool = Instance.new("Tool")
     tool.Name = "Teleport Tool"
@@ -407,6 +474,11 @@ MovementTab:Button({ Title = "Tool Teleport", Callback = giveTPTool })
 VisualsTab:Toggle({ Title = "Bright / Fullbright", Callback = toggleBright })
 
 VisualsTab:Toggle({
+    Title = "Làm mờ hiệu ứng tối của game",
+    Callback = toggleAntiNoise
+})
+
+VisualsTab:Toggle({
     Title = "ESP Entity, monster",
     Callback = function(v)
         espEnabled = v
@@ -441,14 +513,6 @@ CombatTab:Toggle({
     end
 })
 
-CombatTab:Toggle({
-    Title = "Hiện vòng FOV",
-    Default = true,
-    Callback = function(v)
-        showFov = v
-    end
-})
-
 CombatTab:Slider({
     Title = "FOV Size",
     Value = { Min = 40, Max = 400, Default = 120 },
@@ -458,7 +522,7 @@ CombatTab:Slider({
 })
 
 CombatTab:Slider({
-    Title = "Smoothness (thấp = mượt hơn)",
+    Title = "Smoothness (kéo lên 1 hoặc để default, kéo xuống 0 thì kéo tới gần giữa, kéo xuống nữa khỏi aim)",
     Value = { Min = 0.05, Max = 0.8, Default = 0.18 },
     Callback = function(v)
         smoothness = v
@@ -500,7 +564,7 @@ UtilityTab:Button({
 
         WindUI:Notify({
             Title = "Camera",
-            Content = "Camera đã được unlock!",
+            Content = "Camera unlock!",
             Duration = 3
         })
     end
@@ -533,6 +597,29 @@ RunService.RenderStepped:Connect(function()
         updateItemESP()
     end
 
+    if antiNoiseEnabled then
+        for _, effect in pairs(Lighting:GetChildren()) do
+            if effect:IsA("BlurEffect") 
+            or effect:IsA("ColorCorrectionEffect") 
+            or effect:IsA("BloomEffect") 
+            or effect:IsA("DepthOfFieldEffect") 
+            or effect:IsA("SunRaysEffect") 
+            or effect:IsA("ColorGradingEffect") then
+                effect.Enabled = false
+            end
+        end
+        
+        Lighting.FogEnd = 1000000
+        Lighting.FogStart = 0
+        
+        local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+        if atmosphere then
+            atmosphere.Density = 0
+            atmosphere.Glare = 0
+            atmosphere.Haze = 0
+        end
+    end
+
     local viewportSize = camera.ViewportSize
     fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
     fovCircle.Radius = fovSize
@@ -540,15 +627,6 @@ RunService.RenderStepped:Connect(function()
 
     if aimEnabled then
         doAimbot()
-    end
-end)
-
-UserInputService.JumpRequest:Connect(function()
-    if infJumpEnabled then
-        local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-        if hum then
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
     end
 end)
 
@@ -569,12 +647,5 @@ Workspace.DescendantAdded:Connect(function(desc)
                 createItemESP(desc)
             end
         end
-    end
-end)
-
-player.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    if speedEnabled then
-        setWalkSpeed(currentSpeed)
     end
 end)
