@@ -38,7 +38,6 @@ local maxAimDistance = 180
 local antiNoiseEnabled = false
 local savedEffects = {}
 
--- Auto Dodge
 local autoDodgeEnabled = false
 local dodgeDistance = 10
 local dodgeForce = 65
