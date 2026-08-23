@@ -489,7 +489,6 @@ local function doAimbot()
         cam.CFrame = current:Lerp(goal, smoothness)
     end
 end
-
 MovementTab:Toggle({
     Title = "Speed",
     Callback = function(v)
