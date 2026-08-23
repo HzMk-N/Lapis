@@ -14,7 +14,7 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.15,
 })
 
-WindUI:Notify({ Title = "ARZ", Content = "Script không làm chống steal || chỉ cho người quen sài", Duration = 5 })
+WindUI:Notify({ Title = "ARZ", Content = "Script beta - NguyenVanNguyenn | script v1 + Aimbot + Anti Noise + Auto Dodge", Duration = 5 })
 
 local MovementTab = Window:Tab({ Title = "Movement", Icon = "move" })
 local VisualsTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
@@ -37,6 +37,13 @@ local maxAimDistance = 180
 
 local antiNoiseEnabled = false
 local savedEffects = {}
+
+-- Auto Dodge
+local autoDodgeEnabled = false
+local dodgeDistance = 7
+local dodgeForce = 65
+local dodgeCooldown = 0.35
+local lastDodgeTime = 0
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -325,7 +332,6 @@ local function toggleAntiNoise(state)
             end
         end
         
-        -- Tắt effect trên Camera
         local cam = workspace.CurrentCamera
         if cam then
             for _, effect in pairs(cam:GetChildren()) do
@@ -342,7 +348,6 @@ local function toggleAntiNoise(state)
         Lighting.FogStart = 0
         Lighting.FogColor = Color3.fromRGB(192, 192, 192)
         
-        -- Reset Atmosphere
         local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
         if atmosphere then
             atmosphere.Density = 0
@@ -357,7 +362,6 @@ local function toggleAntiNoise(state)
             Duration = 3
         })
     else
-        -- Bật lại các effect đã tắt
         for effect, wasEnabled in pairs(savedEffects) do
             if effect and effect.Parent then
                 effect.Enabled = wasEnabled
@@ -392,6 +396,46 @@ local function setWalkSpeed(speed)
     local char = player.Character
     if char and char:FindFirstChild("Humanoid") then
         char.Humanoid.WalkSpeed = speed
+    end
+end
+
+local function doAutoDodge()
+    if not autoDodgeEnabled then return end
+    if tick() - lastDodgeTime < dodgeCooldown then return end
+
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum or hum.Health <= 0 then return end
+
+    local closestDist = math.huge
+    local closestRoot = nil
+
+    for target, data in pairs(espObjects) do
+        if target and target.Parent and data.Root and data.Root.Parent then
+            local mType = getMonsterType(target.Name)
+            if mType == "Dangerous" or mType == "Special" then
+                local dist = (hrp.Position - data.Root.Position).Magnitude
+                if dist < closestDist and dist <= dodgeDistance then
+                    closestDist = dist
+                    closestRoot = data.Root
+                end
+            end
+        end
+    end
+
+    if closestRoot then
+        local direction = (hrp.Position - closestRoot.Position).Unit
+        direction = Vector3.new(direction.X, 0, direction.Z).Unit
+
+        hrp.AssemblyLinearVelocity = Vector3.new(
+            direction.X * dodgeForce,
+            hrp.AssemblyLinearVelocity.Y,
+            direction.Z * dodgeForce
+        )
+
+        lastDodgeTime = tick()
     end
 end
 
@@ -443,7 +487,6 @@ local function doAimbot()
         local goal = CFrame.new(current.Position, targetPos)
         cam.CFrame = current:Lerp(goal, smoothness)
     end
-end
 
 MovementTab:Toggle({
     Title = "Speed",
@@ -469,6 +512,29 @@ MovementTab:Slider({
 })
 
 MovementTab:Toggle({ Title = "NoClip", Callback = function(v) noclipEnabled = v end })
+
+MovementTab:Toggle({
+    Title = "Auto Dodge (Né quái gần)",
+    Callback = function(v)
+        autoDodgeEnabled = v
+        if v then
+            WindUI:Notify({
+                Title = "Auto Dodge",
+                Content = "Đã bật! Né khi quái ≤ " .. dodgeDistance .. " studs",
+                Duration = 3
+            })
+        end
+    end
+})
+
+MovementTab:Slider({
+    Title = "Dodge Distance (studs)",
+    Value = { Min = 5, Max = 12, Default = 7 },
+    Callback = function(v)
+        dodgeDistance = v
+    end
+})
+
 MovementTab:Button({ Title = "Tool Teleport", Callback = giveTPTool })
 
 VisualsTab:Toggle({ Title = "Bright / Fullbright", Callback = toggleBright })
@@ -522,7 +588,7 @@ CombatTab:Slider({
 })
 
 CombatTab:Slider({
-    Title = "Smoothness (kéo lên 1 hoặc để default, kéo xuống 0 thì kéo tới gần giữa, kéo xuống nữa khỏi aim)",
+    Title = "Smoothness (kéo lên 1, kéo xuống 0 khỏi aim)",
     Value = { Min = 0.05, Max = 0.8, Default = 0.18 },
     Callback = function(v)
         smoothness = v
@@ -619,6 +685,8 @@ RunService.RenderStepped:Connect(function()
             atmosphere.Haze = 0
         end
     end
+
+    doAutoDodge()
 
     local viewportSize = camera.ViewportSize
     fovCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
